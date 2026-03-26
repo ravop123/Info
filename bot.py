@@ -11,8 +11,8 @@ from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 from flask import Flask, request
 
 # 🔑 BOT CONFIG
-BOT_TOKEN = "8156691298:AAFNdvY6hAOLgS6P-lzRGO1xd9S8IkRyHiE"
-ADMIN_IDS = [8431995898, 5936431184]
+BOT_TOKEN = "YOUR_BOT_TOKEN"
+ADMIN_IDS = [8431995898, 8112297365]
 
 bot = telebot.TeleBot(BOT_TOKEN)
 
@@ -29,7 +29,7 @@ CHANNELS = [
 API_URL = "https://ayaanmods.site/number.php"
 API_KEY = "annonymous"
 API_DEVELOPER = "@afkchatgpt998"
-FREE_DAILY_LIMIT = 1
+FREE_DAILY_LIMIT = 5
 
 # 📊 Database structure
 DB_FILE = "user_data.json"
@@ -199,7 +199,7 @@ def get_progress_bar(current, total, length=20):
     return bar
 
 def format_number_info(response_text):
-    """Format API response safely"""
+    """Format API response safely with aesthetic design"""
     try:
         # Try to parse as JSON first
         data_list = json.loads(response_text)
@@ -209,74 +209,69 @@ def format_number_info(response_text):
             if not data_list:
                 return "❌ No records found for this number!"
             
-            formatted = "📱 **NUMBER INFORMATION** 📱\n\n"
-            formatted += "━━━━━━━━━━━━━━━━━━━━\n"
-            formatted += f"📌 **API DEVELOPER:** `{API_DEVELOPER}`\n"
-            formatted += f"📌 **CHANNEL NAME:** `{CHANNELS[0]['name']}`\n"
-            formatted += f"📌 **CHANNEL LINK:** `{CHANNELS[0]['link']}`\n"
-            formatted += f"📌 **TOTAL RECORDS:** `{len(data_list)}`\n"
-            formatted += "━━━━━━━━━━━━━━━━━━━━\n\n"
+            # Create aesthetic header
+            formatted = "🔍 *OSINT NUMBER LOOKUP* 🔍\n"
+            formatted += "╔══════════════════════════════════════╗\n"
+            formatted += f"║ 📡 API DEVELOPER: `{API_DEVELOPER}`\n"
+            formatted += f"║ 📢 CHANNEL: `{CHANNELS[0]['name']}`\n"
+            formatted += f"║ 🔗 LINK: {CHANNELS[0]['link']}\n"
+            formatted += f"║ 📊 TOTAL RECORDS: `{len(data_list)}`\n"
+            formatted += "╚══════════════════════════════════════╝\n\n"
             
             for idx, record in enumerate(data_list, 1):
-                # Skip if record is not a dictionary
                 if not isinstance(record, dict):
                     continue
-                    
-                formatted += f"**📋 RECORD {idx}**\n"
-                formatted += "┌─────────────────────\n"
                 
-                # Safe extraction with .get()
+                # Create record header with decoration
+                formatted += f"┌─ 📋 *RECORD {idx}* ─────────────────┐\n"
+                
+                # Safe extraction with beautiful formatting
                 if record.get('name'):
-                    formatted += f"│ 👤 **NAME:** `{record['name']}`\n"
+                    formatted += f"│ 👤 *NAME:* `{record['name'][:50]}`\n"
                 if record.get('father_name'):
-                    formatted += f"│ 👨 **FATHER'S NAME:** `{record['father_name']}`\n"
+                    formatted += f"│ 👨 *FATHER:* `{record['father_name'][:50]}`\n"
                 if record.get('mobile'):
-                    formatted += f"│ 📱 **MOBILE:** `{record['mobile']}`\n"
+                    formatted += f"│ 📱 *MOBILE:* `{record['mobile']}`\n"
                 if record.get('alternate'):
-                    formatted += f"│ 📞 **ALTERNATE:** `{record['alternate']}`\n"
+                    formatted += f"│ 📞 *ALT:* `{record['alternate']}`\n"
                 if record.get('address'):
-                    address = str(record['address'])[:100] + "..." if len(str(record['address'])) > 100 else str(record['address'])
-                    formatted += f"│ 🏠 **ADDRESS:** `{address}`\n"
+                    address = str(record['address'])[:80]
+                    formatted += f"│ 🏠 *ADDRESS:* `{address}`\n"
                 if record.get('circle'):
-                    formatted += f"│ 🔄 **CIRCLE:** `{record['circle']}`\n"
+                    formatted += f"│ 🔄 *CIRCLE:* `{record['circle']}`\n"
                 if record.get('email'):
-                    formatted += f"│ 📧 **EMAIL:** `{record['email']}`\n"
+                    formatted += f"│ 📧 *EMAIL:* `{record['email'][:40]}`\n"
                 if record.get('id'):
-                    formatted += f"│ 🆔 **ID:** `{record['id']}`\n"
+                    formatted += f"│ 🆔 *ID:* `{record['id']}`\n"
                 
-                formatted += "└─────────────────────\n\n"
+                formatted += "└─────────────────────────────────────┘\n\n"
             
-            formatted += "━━━━━━━━━━━━━━━━━━━━\n"
-            formatted += "🔍 *Data retrieved from secure sources*"
-            return formatted
-        
-        # If it's a string, try to parse as structured text
-        elif isinstance(data_list, str):
-            # Try to extract meaningful data
-            lines = response_text.split('\n')
-            formatted = "📱 **NUMBER INFORMATION** 📱\n\n"
-            formatted += "━━━━━━━━━━━━━━━━━━━━\n"
-            formatted += f"📌 **API DEVELOPER:** `{API_DEVELOPER}`\n"
-            formatted += f"📌 **CHANNEL NAME:** `{CHANNELS[0]['name']}`\n"
-            formatted += f"📌 **CHANNEL LINK:** `{CHANNELS[0]['link']}`\n"
-            formatted += "━━━━━━━━━━━━━━━━━━━━\n\n"
+            formatted += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+            formatted += "🔒 *Data retrieved from secure sources*"
             
-            for line in lines:
-                if line.strip():
-                    formatted += f"📌 {line}\n"
+            # Split long messages to avoid MESSAGE_TOO_LONG error
+            if len(formatted) > 4000:
+                parts = []
+                current_part = ""
+                for line in formatted.split('\n'):
+                    if len(current_part + line) > 3800:
+                        parts.append(current_part)
+                        current_part = line + '\n'
+                    else:
+                        current_part += line + '\n'
+                if current_part:
+                    parts.append(current_part)
+                return parts
             
-            formatted += "\n━━━━━━━━━━━━━━━━━━━━\n"
-            formatted += "🔍 *Data retrieved from secure sources*"
             return formatted
         
         else:
-            return f"📱 **NUMBER INFORMATION** 📱\n\n```\n{response_text}\n```"
+            return [f"📱 **NUMBER INFORMATION** 📱\n\n```\n{response_text[:3000]}\n```"]
             
     except json.JSONDecodeError:
-        # If not JSON, return as plain text
-        return f"📱 **NUMBER INFORMATION** 📱\n\n```\n{response_text}\n```"
+        return [f"📱 **NUMBER INFORMATION** 📱\n\n```\n{response_text[:3000]}\n```"]
     except Exception as e:
-        return f"❌ Error formatting data: {str(e)}\n\nRaw response:\n```\n{response_text}\n```"
+        return [f"❌ Error: {str(e)[:100]}"]
 
 def send_loading_with_progress(chat_id, message_text):
     """Send message with progress bar animation"""
@@ -296,7 +291,7 @@ def send_loading_with_progress(chat_id, message_text):
     return msg
 
 def main_menu(user_id):
-    """Create main menu keyboard with buttons - Admin button only visible to admins"""
+    """Create main menu keyboard with buttons"""
     keyboard = InlineKeyboardMarkup(row_width=2)
     
     # Show remaining searches if free user
@@ -533,18 +528,44 @@ def handle_number(msg):
             response_text = res.text
             formatted_info = format_number_info(response_text)
             
-            # Only increment count if we got valid data (not error message)
-            if "❌" not in formatted_info and "error" not in formatted_info.lower():
-                increment_lookup(user_id)
-                lookup_success = True
+            # Check if we got valid data
+            lookup_success = "❌" not in str(formatted_info) if isinstance(formatted_info, str) else True
+            
+            # If formatted_info is a list (multiple parts), send as separate messages
+            if isinstance(formatted_info, list):
+                # Delete loading message
+                bot.delete_message(msg.chat.id, loading_msg.message_id)
+                
+                # Send each part separately
+                for part in formatted_info:
+                    try:
+                        bot.send_message(msg.chat.id, part, parse_mode="Markdown")
+                        time.sleep(0.3)  # Small delay between messages
+                    except Exception as e:
+                        # If still too long, split further
+                        if "MESSAGE_TOO_LONG" in str(e):
+                            for i in range(0, len(part), 3500):
+                                bot.send_message(msg.chat.id, part[i:i+3500], parse_mode="Markdown")
+                        else:
+                            bot.send_message(msg.chat.id, f"⚠️ Error displaying data: {str(e)[:100]}")
             else:
-                lookup_success = False
+                # Single message
+                try:
+                    bot.edit_message_text(formatted_info, msg.chat.id, loading_msg.message_id, parse_mode="Markdown")
+                except Exception as e:
+                    if "MESSAGE_TOO_LONG" in str(e):
+                        # Split into multiple messages
+                        bot.delete_message(msg.chat.id, loading_msg.message_id)
+                        for i in range(0, len(formatted_info), 3500):
+                            bot.send_message(msg.chat.id, formatted_info[i:i+3500], parse_mode="Markdown")
+                    else:
+                        bot.edit_message_text(f"⚠️ Error: {str(e)[:100]}", msg.chat.id, loading_msg.message_id)
             
-            # Update final message
-            bot.edit_message_text(formatted_info, msg.chat.id, loading_msg.message_id, parse_mode="Markdown")
-            
-            # Show success with updated daily usage only if lookup was successful
+            # Only increment count if lookup was successful
             if lookup_success:
+                increment_lookup(user_id)
+                
+                # Show success with updated daily usage
                 today_usage = get_today_usage(user_id)
                 remaining_now = FREE_DAILY_LIMIT - today_usage
                 usage_bar = get_progress_bar(today_usage, FREE_DAILY_LIMIT, 15)
@@ -578,13 +599,25 @@ def handle_number(msg):
             "Please try again later.", 
             parse_mode="Markdown")
     except Exception as e:
-        bot.edit_message_text(f"⚠️ Error: {str(e)}", msg.chat.id, loading_msg.message_id)
+        error_msg = str(e)
+        if "MESSAGE_TOO_LONG" in error_msg:
+            bot.edit_message_text("⚠️ Result too long - Sending in parts...", msg.chat.id, loading_msg.message_id)
+            # Try to send raw response in parts
+            try:
+                raw_response = res.text if 'res' in locals() else "No data"
+                for i in range(0, len(raw_response), 3500):
+                    bot.send_message(msg.chat.id, f"📊 **Data (Part {i//3500 + 1}):**\n```\n{raw_response[i:i+3500]}\n```", parse_mode="Markdown")
+            except:
+                bot.send_message(msg.chat.id, f"⚠️ Error: {error_msg[:200]}")
+        else:
+            bot.edit_message_text(f"⚠️ Error: {error_msg[:100]}", msg.chat.id, loading_msg.message_id)
+        
         bot.send_message(msg.chat.id, 
             f"ℹ️ **Note:** Your search count was not deducted.\n"
-            f"Error: {str(e)}", 
+            f"Error: {error_msg[:100]}", 
             parse_mode="Markdown")
 
-# Callback handlers
+# Callback handlers (keeping from previous version)
 @bot.callback_query_handler(func=lambda call: True)
 def callback_handler(call):
     user_id = call.from_user.id
@@ -851,7 +884,7 @@ def callback_handler(call):
                             reply_markup=main_menu(user_id))
         bot.answer_callback_query(call.id)
     
-    # Admin panel callbacks
+    # Admin panel callbacks (keeping from previous version)
     elif call.data == "admin_panel":
         if user_id not in ADMIN_IDS:
             bot.answer_callback_query(call.id, "❌ Admin access only!", show_alert=True)
@@ -920,6 +953,7 @@ def callback_handler(call):
                             parse_mode="Markdown", reply_markup=keyboard)
         bot.answer_callback_query(call.id)
     
+    # Add other admin callbacks as needed
     elif call.data == "admin_users":
         if user_id not in ADMIN_IDS:
             bot.answer_callback_query(call.id, "❌ Admin only!", show_alert=True)
@@ -932,13 +966,10 @@ def callback_handler(call):
         for uid, udata in list(data["users"].items())[:10]:
             if udata.get("premium_expiry"):
                 premium_count += 1
-                expiry = datetime.fromisoformat(udata["premium_expiry"])
-                days_left = (expiry - datetime.now()).days
-                users_list += f"⭐ `{uid}` - Premium ({days_left} days left)\n"
+                users_list += f"⭐ `{uid}` - Premium\n"
             else:
                 free_count += 1
-                today_usage = get_today_usage(uid)
-                users_list += f"🔓 `{uid}` - Free ({FREE_DAILY_LIMIT - today_usage}/{FREE_DAILY_LIMIT} left today)\n"
+                users_list += f"🔓 `{uid}` - Free\n"
         
         users_list += f"\n📊 **Summary:**\n"
         users_list += f"• Premium: {premium_count}\n"
@@ -964,18 +995,15 @@ def callback_handler(call):
         for code, cinfo in list(data["gift_codes"].items())[:10]:
             if cinfo["used"]:
                 used += 1
-                codes_list += f"❌ `{code}` - Used by {cinfo.get('used_by', 'Unknown')}\n"
+                codes_list += f"❌ `{code}` - Used\n"
             else:
                 active += 1
-                expiry = datetime.fromisoformat(cinfo["expiry"])
-                days_left = (expiry - datetime.now()).days
-                codes_list += f"✅ `{code}` - Active ({days_left} days left)\n"
+                codes_list += f"✅ `{code}` - Active\n"
         
         codes_list += f"\n📊 **Summary:**\n"
         codes_list += f"• Active: {active}\n"
         codes_list += f"• Used: {used}\n"
-        codes_list += f"• Total: {len(data['gift_codes'])}\n\n"
-        codes_list += f"⚠️ **Each code can only be used once!**"
+        codes_list += f"• Total: {len(data['gift_codes'])}"
         
         keyboard = InlineKeyboardMarkup()
         keyboard.add(InlineKeyboardButton("🔙 BACK TO ADMIN", callback_data="admin_panel"))
@@ -1372,6 +1400,7 @@ if __name__ == '__main__':
     print(f"🎁 Gift codes are one-time use only!")
     print(f"✅ Count only deducted on successful lookup!")
     print(f"👑 Admin button visible only to admins in main menu!")
+    print(f"📱 Message splitting enabled for long responses!")
     
     if 'RENDER' in os.environ or 'RAILWAY_ENVIRONMENT' in os.environ:
         PORT = int(os.environ.get('PORT', 1000))

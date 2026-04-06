@@ -21,7 +21,7 @@ app = Flask(__name__)
 
 # 📢 Force join channels
 CHANNELS = [
-    {"id": -1003709430806, "link": "https://t.me/PremiumCookieUpdates", "username": "@PremiumCookieUpdates", "name": "Premium Cookie Updates"},
+    {"id": -1003729057004, "link": "https://t.me/esdiekidrav_gateways", "username": "@PREMIUMCOOKIEGATEWAYS", "name": "PREMIUM COOKIE GATEWAYS"},
     {"id": -1003343836959, "link": "https://t.me/free_netflix_accountsss", "username": "@free_netflix_accountsss", "name": "Free Netflix Accounts"}
 ]
 

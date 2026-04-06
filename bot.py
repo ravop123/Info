@@ -29,7 +29,7 @@ CHANNELS = [
 API_URL = "https://ayaanmods.site/number.php"
 API_KEY = "annonymous"
 API_DEVELOPER = "@afkchatgpt998"
-FREE_DAILY_LIMIT = 1
+FREE_DAILY_LIMIT = 5
 
 # 📊 Database structure
 DB_FILE = "user_data.json"

@@ -19,10 +19,10 @@ bot = telebot.TeleBot(BOT_TOKEN)
 # Flask app for webhook
 app = Flask(__name__)
 
-# 📢 Force join channels - UPDATED WITH CORRECT IDs
+# 📢 Force join channels - MODIFIED AS REQUESTED
 CHANNELS = [
-    {"id": -1003729057004, "link": "https://t.me/esdiekidrav_gateways", "username": "@esdiekidrav_gateways", "name": "ESDIEKIDRAV Gateways"},
-    {"id": -1003343836959, "link": "https://t.me/free_netflix_accountsss", "username": "@free_netflix_accountsss", "name": "Free Netflix Accounts"}
+    {"id": -1003729057004, "link": "https://t.me/esdiekidrav_gateways"},
+    {"id": -1003343836959, "link": "https://t.me/free_netflix_accountsss"}
 ]
 
 # 🌐 API CONFIG
@@ -61,7 +61,7 @@ for key in required_keys:
         data[key] = {} if key != "total_commands" else 0
         save_data(data)
 
-# Helper functions (No changes needed here, keeping your original logic)
+# Helper functions
 def has_premium(user_id):
     user_id = str(user_id)
     if user_id in data["users"]:
@@ -88,6 +88,7 @@ def add_invite(user_id):
     return False
 
 def get_today_usage(user_id):
+    """Safe function to get today's usage"""
     user_id = str(user_id)
     today = datetime.now().strftime("%Y-%m-%d")
     
@@ -97,6 +98,7 @@ def get_today_usage(user_id):
     return data["daily_usage"][user_id].get(today, 0)
 
 def can_lookup(user_id):
+    """Check if user can lookup"""
     if has_premium(user_id):
         return True, "premium", FREE_DAILY_LIMIT
     
@@ -118,6 +120,7 @@ def can_lookup(user_id):
     return True, "free", remaining
 
 def increment_lookup(user_id):
+    """Only increment after successful lookup"""
     user_id = str(user_id)
     today = datetime.now().strftime("%Y-%m-%d")
     
@@ -128,16 +131,32 @@ def increment_lookup(user_id):
     data["total_commands"] = data.get("total_commands", 0) + 1
     save_data(data)
 
-def is_joined(user_id):
+# MODIFIED: Check join function
+def check_join(user_id):
+    """Check if user has joined all required channels"""
+    not_joined = []
     for ch in CHANNELS:
         try:
-            member = bot.get_chat_member(ch["id"], user_id)
-            if member.status in ["left", "kicked"]:
-                return False
-        except Exception as e:
-            print(f"Error checking channel {ch['id']}: {e}")
-            return False
-    return True
+            member = bot.get_chat_member(chat_id=ch["id"], user_id=user_id)
+            if member.status not in ["member", "administrator", "creator"]:
+                not_joined.append(ch)
+        except:
+            not_joined.append(ch)
+    return not_joined
+
+# MODIFIED: Join buttons function
+def join_buttons(channels):
+    """Create inline buttons for joining channels"""
+    keyboard = InlineKeyboardMarkup(row_width=1)
+    for ch in channels:
+        keyboard.add(InlineKeyboardButton(f"📢 Join Channel", url=ch["link"]))
+    keyboard.add(InlineKeyboardButton("✅ I've Joined", callback_data="verify"))
+    return keyboard
+
+def is_joined(user_id):
+    """Check if user has joined all channels (for compatibility)"""
+    not_joined = check_join(user_id)
+    return len(not_joined) == 0
 
 def generate_gift_code(duration_type, duration_value):
     code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=12))
@@ -188,6 +207,7 @@ def redeem_gift_code(user_id, code):
     
     return True, f"✅ Premium access granted until {expiry.strftime('%Y-%m-%d')}!"
 
+# Progress Bar Function
 def get_progress_bar(current, total, length=20):
     if total == 0:
         return "░" * length
@@ -196,18 +216,21 @@ def get_progress_bar(current, total, length=20):
     return bar
 
 def format_number_info(response_text):
+    """Format API response safely with aesthetic design"""
     try:
+        # Try to parse as JSON first
         data_list = json.loads(response_text)
         
+        # Check if it's a list of dictionaries
         if isinstance(data_list, list):
             if not data_list:
                 return "❌ No records found for this number!"
             
+            # Create aesthetic header
             formatted = "🔍 *OSINT NUMBER LOOKUP* 🔍\n"
             formatted += "╔══════════════════════════════════════╗\n"
             formatted += f"║ 📡 API DEVELOPER: `{API_DEVELOPER}`\n"
-            formatted += f"║ 📢 CHANNEL: `{CHANNELS[0]['name']}`\n"
-            formatted += f"║ 🔗 LINK: {CHANNELS[0]['link']}\n"
+            formatted += f"║ 📢 CHANNEL: `{CHANNELS[0]['link']}`\n"
             formatted += f"║ 📊 TOTAL RECORDS: `{len(data_list)}`\n"
             formatted += "╚══════════════════════════════════════╝\n\n"
             
@@ -215,8 +238,10 @@ def format_number_info(response_text):
                 if not isinstance(record, dict):
                     continue
                 
+                # Create record header with decoration
                 formatted += f"┌─ 📋 *RECORD {idx}* ─────────────────┐\n"
                 
+                # Safe extraction with beautiful formatting
                 if record.get('name'):
                     formatted += f"│ 👤 *NAME:* `{record['name'][:50]}`\n"
                 if record.get('father_name'):
@@ -240,6 +265,7 @@ def format_number_info(response_text):
             formatted += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
             formatted += "🔒 *Data retrieved from secure sources*"
             
+            # Split long messages to avoid MESSAGE_TOO_LONG error
             if len(formatted) > 4000:
                 parts = []
                 current_part = ""
@@ -264,6 +290,7 @@ def format_number_info(response_text):
         return [f"❌ Error: {str(e)[:100]}"]
 
 def send_loading_with_progress(chat_id, message_text):
+    """Send message with progress bar animation"""
     msg = bot.send_message(chat_id, f"🔍 {message_text}\n\n[░░░░░░░░░░░░░░░░░░░░] 0%")
     
     for i in range(1, 101, 10):
@@ -280,8 +307,10 @@ def send_loading_with_progress(chat_id, message_text):
     return msg
 
 def main_menu(user_id):
+    """Create main menu keyboard with buttons"""
     keyboard = InlineKeyboardMarkup(row_width=2)
     
+    # Show remaining searches if free user
     if not has_premium(user_id):
         today_usage = get_today_usage(user_id)
         remaining = FREE_DAILY_LIMIT - today_usage
@@ -309,12 +338,14 @@ def main_menu(user_id):
     else:
         keyboard.add(InlineKeyboardButton("🔓 GET PREMIUM", callback_data="get_premium"))
     
+    # 👑 ADMIN BUTTON - Only visible to admins
     if user_id in ADMIN_IDS:
         keyboard.add(InlineKeyboardButton("👑 ADMIN PANEL", callback_data="admin_panel"))
     
     return keyboard
 
 def admin_panel_menu():
+    """Admin panel menu with all admin features"""
     keyboard = InlineKeyboardMarkup(row_width=2)
     keyboard.add(
         InlineKeyboardButton("🎁 GENERATE CODE", callback_data="admin_gen_code"),
@@ -346,6 +377,7 @@ def admin_panel_menu():
     return keyboard
 
 def notify_admin_new_user(user_id, username, first_name):
+    """Notify admin when new user joins"""
     total_users = len(data["users"])
     today_users = sum(1 for u in data["users"].keys() if data["users"].get(u, {}).get("joined_date", "").startswith(datetime.now().strftime("%Y-%m-%d")))
     
@@ -366,22 +398,25 @@ def notify_admin_new_user(user_id, username, first_name):
         except:
             pass
 
-# 🚀 Start Command
+# 🚀 Start Command with MODIFIED Force Join Check
 @bot.message_handler(commands=['start'])
 def start(msg):
     user_id = msg.from_user.id
     username = msg.from_user.username
     first_name = msg.from_user.first_name
     
+    # Ensure user data exists
     if str(user_id) not in data["users"]:
         data["users"][str(user_id)] = {
             "joined_date": datetime.now().isoformat(),
             "username": username,
-            "first_name": first_name
+            "first_name": first_name,
+            "verified": False
         }
         save_data(data)
         notify_admin_new_user(user_id, username, first_name)
     
+    # Handle referral
     if len(msg.text.split()) > 1:
         ref_code = msg.text.split()[1]
         if ref_code.startswith("ref_"):
@@ -403,24 +438,20 @@ def start(msg):
             except:
                 pass
     
-    joined = is_joined(user_id)
-    
-    if not joined:
-        keyboard = InlineKeyboardMarkup(row_width=1)
-        for ch in CHANNELS:
-            keyboard.add(InlineKeyboardButton(f"📢 JOIN {ch['name']}", url=ch["link"]))
-        keyboard.add(InlineKeyboardButton("✅ VERIFY MEMBERSHIP", callback_data="check_join"))
-        
-        text = f"🔒 **VERIFICATION REQUIRED** 🔒\n\n"
-        text += f"Welcome {first_name}!\n\n"
-        text += f"Please join our channels to use this bot:\n\n"
-        for ch in CHANNELS:
-            text += f"📢 **{ch['name']}**\n"
-            text += f"🔗 {ch['link']}\n\n"
-        text += "After joining both channels, tap the verify button below."
-        
-        bot.reply_to(msg, text, parse_mode="Markdown", reply_markup=keyboard)
+    # MODIFIED: FORCE JOIN CHECK - This is the main part
+    not_joined = check_join(user_id)
+    if not_joined:
+        welcome = (
+            "🌟 **Welcome to Number Lookup Bot!** 🌟\n\n"
+            "To use this bot, you must join our channels first:\n"
+            "👇 Click the buttons below to join"
+        )
+        bot.reply_to(msg, welcome, parse_mode='Markdown', reply_markup=join_buttons(not_joined))
         return
+    
+    # If user has joined all channels, continue with normal flow
+    data["users"][str(user_id)]["verified"] = True
+    save_data(data)
     
     welcome_text = f"✨ **WELCOME TO NUMBER LOOKUP BOT** ✨\n\n"
     welcome_text += f"👋 Hello **{first_name}**!\n\n"
@@ -440,6 +471,7 @@ def start(msg):
         welcome_text += f"📊 **Daily Limit:** {FREE_DAILY_LIMIT} search/day\n"
         welcome_text += f"📊 Today's usage: {today_usage}/{FREE_DAILY_LIMIT}\n"
         
+        # Add progress bar for daily usage
         usage_bar = get_progress_bar(today_usage, FREE_DAILY_LIMIT, 15)
         welcome_text += f"📈 Daily Usage: [{usage_bar}] {int(today_usage/FREE_DAILY_LIMIT*100)}%\n\n"
         
@@ -452,9 +484,11 @@ def start(msg):
         welcome_text += f"👥 **Invite 2 friends** for unlimited premium access!\n"
         welcome_text += f"📊 Current invites: {get_invite_count(user_id)}/2\n"
         
+        # Add invite progress bar
         invite_progress = get_progress_bar(get_invite_count(user_id), 2, 15)
         welcome_text += f"🎯 Invite Progress: [{invite_progress}] {int(get_invite_count(user_id)/2*100)}%\n\n"
     
+    # Show admin hint if user is admin
     if user_id in ADMIN_IDS:
         welcome_text += f"👑 **You are an Admin!**\n"
         welcome_text += f"📌 Use the 'ADMIN PANEL' button below for admin features.\n\n"
@@ -463,17 +497,125 @@ def start(msg):
     
     bot.reply_to(msg, welcome_text, parse_mode="Markdown", reply_markup=main_menu(user_id))
 
-# Number lookup handler
+# MODIFIED: Verification Handler
+@bot.callback_query_handler(func=lambda call: call.data == "verify")
+def verify(call):
+    user_id = call.from_user.id
+    
+    not_joined = check_join(user_id)
+    
+    if not_joined:
+        bot.edit_message_text(
+            "❌ **Not Joined!**\n\nPlease join all channels first:",
+            call.message.chat.id,
+            call.message.message_id,
+            parse_mode='Markdown',
+            reply_markup=join_buttons(not_joined)
+        )
+    else:
+        data["users"][str(user_id)]["verified"] = True
+        save_data(data)
+        
+        tier = "premium" if has_premium(user_id) else "free"
+        is_admin_user = user_id in ADMIN_IDS
+        
+        bot.edit_message_text(
+            "✅ **Verification Successful!**\n\nYou now have full access to the bot.",
+            call.message.chat.id,
+            call.message.message_id,
+            parse_mode='Markdown'
+        )
+        
+        # Send main menu
+        welcome_text = f"✨ **WELCOME TO NUMBER LOOKUP BOT** ✨\n\n"
+        welcome_text += f"👋 Hello **{call.from_user.first_name}**!\n\n"
+        
+        if has_premium(user_id):
+            expiry = data["users"][str(user_id)]["premium_expiry"]
+            days_left = (datetime.fromisoformat(expiry) - datetime.now()).days
+            welcome_text += f"⭐ **PREMIUM MEMBER** ⭐\n"
+            welcome_text += f"📅 Expires: {datetime.fromisoformat(expiry).strftime('%Y-%m-%d')}\n"
+            welcome_text += f"⏰ Days left: **{days_left}**\n\n"
+            welcome_text += f"✅ Unlimited lookups activated!\n\n"
+        else:
+            today_usage = get_today_usage(user_id)
+            remaining = FREE_DAILY_LIMIT - today_usage
+            
+            welcome_text += f"🔓 **FREE USER** 🔓\n"
+            welcome_text += f"📊 **Daily Limit:** {FREE_DAILY_LIMIT} search/day\n"
+            welcome_text += f"📊 Today's usage: {today_usage}/{FREE_DAILY_LIMIT}\n"
+            
+            usage_bar = get_progress_bar(today_usage, FREE_DAILY_LIMIT, 15)
+            welcome_text += f"📈 Daily Usage: [{usage_bar}] {int(today_usage/FREE_DAILY_LIMIT*100)}%\n\n"
+            
+            if remaining > 0:
+                welcome_text += f"🎯 **{remaining} search(s) remaining today!**\n\n"
+            else:
+                welcome_text += f"⚠️ **No searches left today!**\n"
+                welcome_text += f"⏰ Resets at midnight (12:00 AM)\n\n"
+            
+            welcome_text += f"👥 **Invite 2 friends** for unlimited premium access!\n"
+            welcome_text += f"📊 Current invites: {get_invite_count(user_id)}/2\n"
+            
+            invite_progress = get_progress_bar(get_invite_count(user_id), 2, 15)
+            welcome_text += f"🎯 Invite Progress: [{invite_progress}] {int(get_invite_count(user_id)/2*100)}%\n\n"
+        
+        if user_id in ADMIN_IDS:
+            welcome_text += f"👑 **You are an Admin!**\n"
+            welcome_text += f"📌 Use the 'ADMIN PANEL' button below for admin features.\n\n"
+        
+        welcome_text += "Use the buttons below to get started:"
+        
+        bot.send_message(call.message.chat.id, welcome_text, parse_mode="Markdown", reply_markup=main_menu(user_id))
+    
+    bot.answer_callback_query(call.id)
+
+# Keep the original check_join handler for backward compatibility
+@bot.callback_query_handler(func=lambda call: call.data == "check_join")
+def check_join_callback(call):
+    user_id = call.from_user.id
+    
+    not_joined = check_join(user_id)
+    
+    if not_joined:
+        bot.edit_message_text(
+            "❌ **Not Joined!**\n\nPlease join all channels first:",
+            call.message.chat.id,
+            call.message.message_id,
+            parse_mode='Markdown',
+            reply_markup=join_buttons(not_joined)
+        )
+    else:
+        data["users"][str(user_id)]["verified"] = True
+        save_data(data)
+        
+        bot.edit_message_text(
+            "✅ **VERIFIED!** ✅\n\nUse /start to continue.",
+            call.message.chat.id,
+            call.message.message_id
+        )
+        
+        class FakeMessage:
+            def __init__(self, user_id, chat_id, first_name):
+                self.from_user = type('obj', (object,), {'id': user_id, 'first_name': first_name})
+                self.chat = type('obj', (object,), {'id': chat_id})
+                self.text = "/start"
+        
+        fake_msg = FakeMessage(user_id, call.message.chat.id, call.from_user.first_name)
+        start(fake_msg)
+    
+    bot.answer_callback_query(call.id)
+
+# Number lookup handler - COUNT ONLY AFTER SUCCESS
 @bot.message_handler(func=lambda msg: msg.text and msg.text.strip().isdigit() and len(msg.text.strip()) >= 10)
 def handle_number(msg):
     user_id = msg.from_user.id
     
+    # Check if user has verified
     if not is_joined(user_id):
-        keyboard = InlineKeyboardMarkup(row_width=1)
-        for ch in CHANNELS:
-            keyboard.add(InlineKeyboardButton(f"📢 JOIN {ch['name']}", url=ch["link"]))
-        keyboard.add(InlineKeyboardButton("✅ VERIFY MEMBERSHIP", callback_data="check_join"))
-        return bot.reply_to(msg, "🔒 Please verify channels first!", reply_markup=keyboard)
+        not_joined = check_join(user_id)
+        bot.reply_to(msg, "🔒 Please verify channels first!", reply_markup=join_buttons(not_joined))
+        return
     
     can_lookup_status, reason, remaining = can_lookup(user_id)
     
@@ -495,8 +637,11 @@ def handle_number(msg):
         return
     
     number = msg.text.strip()
+    
+    # Send progress bar loading animation
     loading_msg = send_loading_with_progress(msg.chat.id, f"Looking up number {number}...")
     
+    # Perform lookup
     params = {"key": API_KEY, "number": number}
     
     try:
@@ -506,34 +651,44 @@ def handle_number(msg):
             response_text = res.text
             formatted_info = format_number_info(response_text)
             
+            # Check if we got valid data
             lookup_success = "❌" not in str(formatted_info) if isinstance(formatted_info, str) else True
             
+            # If formatted_info is a list (multiple parts), send as separate messages
             if isinstance(formatted_info, list):
+                # Delete loading message
                 bot.delete_message(msg.chat.id, loading_msg.message_id)
+                
+                # Send each part separately
                 for part in formatted_info:
                     try:
                         bot.send_message(msg.chat.id, part, parse_mode="Markdown")
-                        time.sleep(0.3)
+                        time.sleep(0.3)  # Small delay between messages
                     except Exception as e:
+                        # If still too long, split further
                         if "MESSAGE_TOO_LONG" in str(e):
                             for i in range(0, len(part), 3500):
                                 bot.send_message(msg.chat.id, part[i:i+3500], parse_mode="Markdown")
                         else:
                             bot.send_message(msg.chat.id, f"⚠️ Error displaying data: {str(e)[:100]}")
             else:
+                # Single message
                 try:
                     bot.edit_message_text(formatted_info, msg.chat.id, loading_msg.message_id, parse_mode="Markdown")
                 except Exception as e:
                     if "MESSAGE_TOO_LONG" in str(e):
+                        # Split into multiple messages
                         bot.delete_message(msg.chat.id, loading_msg.message_id)
                         for i in range(0, len(formatted_info), 3500):
                             bot.send_message(msg.chat.id, formatted_info[i:i+3500], parse_mode="Markdown")
                     else:
                         bot.edit_message_text(f"⚠️ Error: {str(e)[:100]}", msg.chat.id, loading_msg.message_id)
             
+            # Only increment count if lookup was successful
             if lookup_success:
                 increment_lookup(user_id)
                 
+                # Show success with updated daily usage
                 today_usage = get_today_usage(user_id)
                 remaining_now = FREE_DAILY_LIMIT - today_usage
                 usage_bar = get_progress_bar(today_usage, FREE_DAILY_LIMIT, 15)
@@ -547,6 +702,7 @@ def handle_number(msg):
                         success_msg += f"⚠️ **No searches left today!**\n⏰ Resets at midnight\n"
                 bot.send_message(msg.chat.id, success_msg, parse_mode="Markdown")
             else:
+                # If lookup failed, inform user that count wasn't deducted
                 bot.send_message(msg.chat.id, 
                     "ℹ️ **Note:** Your search count was not deducted due to API error.\n"
                     "Please try again later.", 
@@ -569,6 +725,7 @@ def handle_number(msg):
         error_msg = str(e)
         if "MESSAGE_TOO_LONG" in error_msg:
             bot.edit_message_text("⚠️ Result too long - Sending in parts...", msg.chat.id, loading_msg.message_id)
+            # Try to send raw response in parts
             try:
                 raw_response = res.text if 'res' in locals() else "No data"
                 for i in range(0, len(raw_response), 3500):
@@ -583,31 +740,15 @@ def handle_number(msg):
             f"Error: {error_msg[:100]}", 
             parse_mode="Markdown")
 
-# Callback handlers
+# Callback handlers (keeping from previous version)
 @bot.callback_query_handler(func=lambda call: True)
 def callback_handler(call):
     user_id = call.from_user.id
     
-    if call.data == "check_join":
-        if is_joined(user_id):
-            bot.answer_callback_query(call.id, "✅ Verified! Sending welcome message...")
-            bot.edit_message_text("✅ **VERIFIED!** ✅\n\nLoading main menu...", 
-                                call.message.chat.id, call.message.message_id)
-            
-            class FakeMessage:
-                def __init__(self, user_id, chat_id):
-                    self.from_user = type('obj', (object,), {'id': user_id})
-                    self.chat = type('obj', (object,), {'id': chat_id})
-                    self.text = "/start"
-            
-            fake_msg = FakeMessage(user_id, call.message.chat.id)
-            start(fake_msg)
-        else:
-            bot.answer_callback_query(call.id, "❌ Please join all channels first! Click the join buttons above.", show_alert=True)
-    
-    elif call.data == "lookup":
+    if call.data == "lookup":
         if not is_joined(user_id):
-            bot.answer_callback_query(call.id, "Please verify channels first with /start", show_alert=True)
+            not_joined = check_join(user_id)
+            bot.answer_callback_query(call.id, "Please verify channels first!", show_alert=True)
             return
         
         can_lookup_status, reason, remaining = can_lookup(user_id)
@@ -852,7 +993,7 @@ def callback_handler(call):
                             reply_markup=main_menu(user_id))
         bot.answer_callback_query(call.id)
     
-    # Admin panel callbacks
+    # Admin panel callbacks (keeping from previous version)
     elif call.data == "admin_panel":
         if user_id not in ADMIN_IDS:
             bot.answer_callback_query(call.id, "❌ Admin access only!", show_alert=True)
@@ -921,6 +1062,7 @@ def callback_handler(call):
                             parse_mode="Markdown", reply_markup=keyboard)
         bot.answer_callback_query(call.id)
     
+    # Add other admin callbacks as needed
     elif call.data == "admin_users":
         if user_id not in ADMIN_IDS:
             bot.answer_callback_query(call.id, "❌ Admin only!", show_alert=True)
@@ -1082,7 +1224,7 @@ def callback_handler(call):
         stats += f"• Resets at midnight\n\n"
         stats += f"**Channels:**\n"
         for ch in CHANNELS:
-            stats += f"• {ch['name']}: ✅ Required\n"
+            stats += f"• {ch['link']}: ✅ Required\n"
         
         keyboard = InlineKeyboardMarkup()
         keyboard.add(InlineKeyboardButton("🔄 REFRESH", callback_data="admin_bot_stats"))
@@ -1123,7 +1265,7 @@ def callback_handler(call):
         settings += f"• Developer: {API_DEVELOPER}\n\n"
         settings += f"📢 **Channels:**\n"
         for ch in CHANNELS:
-            settings += f"• {ch['name']}: {ch['username']}\n"
+            settings += f"• {ch['link']}\n"
         settings += f"\nTo modify settings, use commands:\n"
         settings += f"• `set_free_limit <number>`\n"
         settings += f"• `set_invite_target <number>`\n"
@@ -1143,12 +1285,14 @@ def handle_text(msg):
     user_id = msg.from_user.id
     text = msg.text.strip()
     
+    # Handle gift code redemption
     if len(text) == 12 and text.isalnum() and text.upper() == text:
         loading_msg = send_loading_with_progress(msg.chat.id, "Redeeming gift code...")
         success, message = redeem_gift_code(user_id, text.upper())
         bot.edit_message_text(message, msg.chat.id, loading_msg.message_id, parse_mode="Markdown")
         return
     
+    # Handle admin commands
     if user_id in ADMIN_IDS:
         if text.lower().startswith("code "):
             parts = text.split()
@@ -1264,12 +1408,14 @@ def handle_text(msg):
             except:
                 bot.reply_to(msg, "❌ Invalid! Use: set_premium_days NUMBER")
     
+    # Handle feedback
     elif text.lower().startswith("feedback "):
         feedback = text[9:]
         data["feedbacks"][str(user_id)] = feedback
         save_data(data)
         bot.reply_to(msg, "✅ Thanks for your feedback! We appreciate it.")
     
+    # Handle report
     elif text.lower().startswith("report "):
         report = text[7:]
         data["reports"][str(user_id)] = report
@@ -1289,6 +1435,7 @@ def handle_text(msg):
 
 # Daily reset function
 def daily_reset_task():
+    """Function to reset daily usage at midnight"""
     while True:
         now = datetime.now()
         midnight = (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
@@ -1315,19 +1462,17 @@ def daily_reset_task():
 reset_thread = threading.Thread(target=daily_reset_task, daemon=True)
 reset_thread.start()
 
-# ========== 🔥 यहाँ से सबसे ज़रूरी बदलाव शुरू हैं 🔥 ==========
-
-# Flask routes for webhook - PORT BINDING FIX
+# Flask routes for webhook
 @app.route('/')
 def index():
-    return "Bot is running! 🚀", 200
+    return "Bot is running!", 200
 
 @app.route(f'/{BOT_TOKEN}', methods=['POST'])
 def webhook():
     json_str = request.get_data().decode('UTF-8')
     update = telebot.types.Update.de_json(json_str)
     bot.process_new_updates([update])
-    return 'OK', 200
+    return '!', 200
 
 # Error handler
 @bot.message_handler(func=lambda msg: True)
@@ -1352,40 +1497,29 @@ def handle_unknown(msg):
         "• HELP & INFO",
         parse_mode="Markdown", reply_markup=main_menu(msg.from_user.id))
 
-# Run bot - RENDER DEPLOYMENT FIX
+# Run bot
 if __name__ == '__main__':
     print("🤖 Bot is starting...")
     print(f"👑 Admin IDs: {ADMIN_IDS}")
     print(f"📢 Channels:")
     for ch in CHANNELS:
-        print(f"   • {ch['name']}: {ch['username']} (ID: {ch['id']})")
+        print(f"   • {ch['link']}")
     print(f"👨‍💻 API Developer: {API_DEVELOPER}")
     print(f"📊 Free users get {FREE_DAILY_LIMIT} search/day (resets at midnight)")
+    print(f"🎁 Gift codes are one-time use only!")
+    print(f"✅ Count only deducted on successful lookup!")
+    print(f"👑 Admin button visible only to admins in main menu!")
+    print(f"📱 Message splitting enabled for long responses!")
     
-    # Render or any production environment detection
-    is_production = 'RENDER' in os.environ or 'RAILWAY_ENVIRONMENT' in os.environ or 'PORT' in os.environ
-    
-    if is_production:
-        # Production mode (Render, Railway, etc.)
-        PORT = int(os.environ.get('PORT', 10000))  # Default Render port is 10000
-        print(f"🚀 Running in PRODUCTION mode on port {PORT}")
-        
-        # Remove any existing webhook
+    if 'RENDER' in os.environ or 'RAILWAY_ENVIRONMENT' in os.environ:
+        PORT = int(os.environ.get('PORT', 1000))
         bot.remove_webhook()
         time.sleep(1)
-        
-        # Construct webhook URL
-        # Render provides RENDER_EXTERNAL_HOSTNAME, Railway provides RAILWAY_PUBLIC_DOMAIN
-        app_domain = os.environ.get('RENDER_EXTERNAL_HOSTNAME') or os.environ.get('RAILWAY_PUBLIC_DOMAIN') or 'localhost'
-        webhook_url = f"https://{app_domain}/{BOT_TOKEN}"
-        
-        print(f"🔗 Setting webhook to: {webhook_url}")
+        webhook_url = f"https://{os.environ.get('RENDER_EXTERNAL_HOSTNAME', 'localhost')}/{BOT_TOKEN}"
         bot.set_webhook(webhook_url)
-        
-        # Start Flask server
+        print(f"🚀 Running in webhook mode on port {PORT}")
         app.run(host='0.0.0.0', port=PORT)
     else:
-        # Local development mode (polling)
-        print("🚀 Running in LOCAL polling mode")
+        print("🚀 Running in polling mode")
         print("✅ Bot is ready! Send /start to begin")
         bot.infinity_polling()

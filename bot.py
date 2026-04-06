@@ -11,7 +11,7 @@ from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 from flask import Flask, request
 
 # 🔑 BOT CONFIG
-BOT_TOKEN = "8537739952:AAGuOjPMGqFCyYUVPNDmF66E7nKafFR4l2I"
+BOT_TOKEN = "8156691298:AAFNdvY6hAOLgS6P-lzRGO1xd9S8IkRyHiE"
 ADMIN_IDS = [8431995898, 7669680491]
 
 bot = telebot.TeleBot(BOT_TOKEN)

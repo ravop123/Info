@@ -11,25 +11,25 @@ from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 from flask import Flask, request
 
 # 🔑 BOT CONFIG
-BOT_TOKEN = "8156691298:AAFNdvY6hAOLgS6P-lzRGO1xd9S8IkRyHiE"
-ADMIN_IDS = [8431995898, 5936431184]
+BOT_TOKEN = "8537739952:AAGuOjPMGqFCyYUVPNDmF66E7nKafFR4l2I"
+ADMIN_IDS = [8431995898, 7669680491]
 
 bot = telebot.TeleBot(BOT_TOKEN)
 
 # Flask app for webhook
 app = Flask(__name__)
 
-# 📢 Force join channels
+# 📢 Force join channels - UPDATED WITH CORRECT IDs
 CHANNELS = [
-    {"id": -1003343836959, "link": "https://t.me/free_netflix_accountsss", "username": "@free_netflix_accountsss", "name": "Free Netflix Accounts"},
-    {"id": -1003729057004, "link": "https://t.me/esdiekidrav_gateways", "username": "@esdiekidrav_gateways", "name": "PREMIUM COOKIE GATEWAYS"}
+    {"id": -1003729057004, "link": "https://t.me/esdiekidrav_gateways", "username": "@esdiekidrav_gateways", "name": "ESDIEKIDRAV Gateways"},
+    {"id": -1003343836959, "link": "https://t.me/free_netflix_accountsss", "username": "@free_netflix_accountsss", "name": "Free Netflix Accounts"}
 ]
 
 # 🌐 API CONFIG
 API_URL = "https://ayaanmods.site/number.php"
 API_KEY = "annonymous"
 API_DEVELOPER = "@afkchatgpt998"
-FREE_DAILY_LIMIT = 5
+FREE_DAILY_LIMIT = 1
 
 # 📊 Database structure
 DB_FILE = "user_data.json"
@@ -132,12 +132,14 @@ def increment_lookup(user_id):
     save_data(data)
 
 def is_joined(user_id):
+    """Check if user has joined all required channels"""
     for ch in CHANNELS:
         try:
             member = bot.get_chat_member(ch["id"], user_id)
             if member.status in ["left", "kicked"]:
                 return False
-        except:
+        except Exception as e:
+            print(f"Error checking channel {ch['id']}: {e}")
             return False
     return True
 
@@ -382,7 +384,7 @@ def notify_admin_new_user(user_id, username, first_name):
         except:
             pass
 
-# 🚀 Start Command
+# 🚀 Start Command - FIXED JOIN MESSAGE
 @bot.message_handler(commands=['start'])
 def start(msg):
     user_id = msg.from_user.id
@@ -421,10 +423,13 @@ def start(msg):
             except:
                 pass
     
-    if not is_joined(user_id):
-        keyboard = InlineKeyboardMarkup()
+    # CHECK JOIN STATUS - ALWAYS SHOW VERIFICATION IF NOT JOINED
+    joined = is_joined(user_id)
+    
+    if not joined:
+        keyboard = InlineKeyboardMarkup(row_width=1)
         for ch in CHANNELS:
-            keyboard.add(InlineKeyboardButton(f"📢 Join {ch['name']}", url=ch["link"]))
+            keyboard.add(InlineKeyboardButton(f"📢 JOIN {ch['name']}", url=ch["link"]))
         keyboard.add(InlineKeyboardButton("✅ VERIFY MEMBERSHIP", callback_data="check_join"))
         
         text = f"🔒 **VERIFICATION REQUIRED** 🔒\n\n"
@@ -438,6 +443,7 @@ def start(msg):
         bot.reply_to(msg, text, parse_mode="Markdown", reply_markup=keyboard)
         return
     
+    # If joined, show welcome message
     welcome_text = f"✨ **WELCOME TO NUMBER LOOKUP BOT** ✨\n\n"
     welcome_text += f"👋 Hello **{first_name}**!\n\n"
     
@@ -488,10 +494,10 @@ def handle_number(msg):
     user_id = msg.from_user.id
     
     if not is_joined(user_id):
-        keyboard = InlineKeyboardMarkup()
+        keyboard = InlineKeyboardMarkup(row_width=1)
         for ch in CHANNELS:
-            keyboard.add(InlineKeyboardButton(f"📢 Join {ch['name']}", url=ch["link"]))
-        keyboard.add(InlineKeyboardButton("✅ VERIFY", callback_data="check_join"))
+            keyboard.add(InlineKeyboardButton(f"📢 JOIN {ch['name']}", url=ch["link"]))
+        keyboard.add(InlineKeyboardButton("✅ VERIFY MEMBERSHIP", callback_data="check_join"))
         return bot.reply_to(msg, "🔒 Please verify channels first!", reply_markup=keyboard)
     
     can_lookup_status, reason, remaining = can_lookup(user_id)
@@ -617,15 +623,18 @@ def handle_number(msg):
             f"Error: {error_msg[:100]}", 
             parse_mode="Markdown")
 
-# Callback handlers (keeping from previous version)
+# Callback handlers
 @bot.callback_query_handler(func=lambda call: True)
 def callback_handler(call):
     user_id = call.from_user.id
     
     if call.data == "check_join":
         if is_joined(user_id):
-            bot.edit_message_text("✅ **VERIFIED!** ✅\n\nUse /start to continue.", 
+            bot.answer_callback_query(call.id, "✅ Verified! Sending welcome message...")
+            bot.edit_message_text("✅ **VERIFIED!** ✅\n\nLoading main menu...", 
                                 call.message.chat.id, call.message.message_id)
+            
+            # Create fake message object to call start function
             class FakeMessage:
                 def __init__(self, user_id, chat_id):
                     self.from_user = type('obj', (object,), {'id': user_id})
@@ -635,7 +644,7 @@ def callback_handler(call):
             fake_msg = FakeMessage(user_id, call.message.chat.id)
             start(fake_msg)
         else:
-            bot.answer_callback_query(call.id, "Please join all channels first!", show_alert=True)
+            bot.answer_callback_query(call.id, "❌ Please join all channels first! Click the join buttons above.", show_alert=True)
     
     elif call.data == "lookup":
         if not is_joined(user_id):
@@ -1394,7 +1403,7 @@ if __name__ == '__main__':
     print(f"👑 Admin IDs: {ADMIN_IDS}")
     print(f"📢 Channels:")
     for ch in CHANNELS:
-        print(f"   • {ch['name']}: {ch['username']}")
+        print(f"   • {ch['name']}: {ch['username']} (ID: {ch['id']})")
     print(f"👨‍💻 API Developer: {API_DEVELOPER}")
     print(f"📊 Free users get {FREE_DAILY_LIMIT} search/day (resets at midnight)")
     print(f"🎁 Gift codes are one-time use only!")
